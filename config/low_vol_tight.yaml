@@ -1,0 +1,19 @@
+seed: 42
+dt_seconds: 1.0
+n_steps: 3600
+trade_size: 1.0
+
+s0: 100.0
+mu: 0.0
+sigma: 0.01
+seconds_per_year: 31536000
+
+base_half_spread_bps: 3.0
+vol_widening_bps: 10.0
+inventory_skew_bps: 8.0
+max_inventory: 20.0
+
+A: 1.5
+k: 80.0
+fee_bps: 0.5
+adverse_horizon_steps: 10
