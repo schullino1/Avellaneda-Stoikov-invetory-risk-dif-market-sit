@@ -1,7 +1,7 @@
 seed: 42                 # Fixer Zufalls-Seed -> exakt reproduzierbare Preiswege/Trades
 dt_seconds: 1.0          # Zeitschritt = 1 Sekunde (macht "60s VaR" = 60 Schritte)
-n_steps: 600             # Simulationslänge = 600 Schritte (10 Minuten)
-T_seconds: 60.0          # AS-Horizont T in Sekunden (tau = T - t*dt, fällt von 600 -> 0)
+n_steps: 1200             # Simulationslänge = 600 Schritte (10 Minuten)
+T_seconds: 1200.0          # AS-Horizont T in Sekunden (tau = T - t*dt, fällt von 600 -> 0)
 trade_size: 1.0          # Feste Stückzahl pro Fill (hält die Mechanik übersichtlich)
 
 tau_mode: session        # "session" oder "rolling"
