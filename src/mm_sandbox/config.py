@@ -7,19 +7,16 @@ class MMConfig(BaseModel):
 
     dt_seconds: float = Field(gt=0)
     n_steps: int = Field(gt=10)
+    T_seconds: float = Field(gt=0)          # NEU
+    tau_mode: str = "session"              # NEU ("session" | "rolling")
+
     trade_size: float = Field(gt=0)
 
     s0: float = Field(gt=0)
     mu: float
     sigma: float = Field(ge=0)
-    gamma: float
-    seconds_per_year: int = Field(gt=0)
+    gamma: float = Field(gt=0)             # >0 wichtig für Log-Term
 
-    tau_mode: str = "session"
-
-    base_half_spread_bps: float = Field(ge=0)
-    vol_widening_bps: float = Field(ge=0)
-    inventory_skew_bps: float = Field(ge=0)
     max_inventory: float = Field(gt=0)
 
     A: float = Field(gt=0)
@@ -29,4 +26,5 @@ class MMConfig(BaseModel):
     adverse_horizon_steps: int = Field(ge=1)
 
     var_horizon_seconds: int = 60
-    var_levels: list[float] = (0.95, 0.99)
+    var_levels: list[float] = Field(default_factory=lambda: [0.95, 0.99])
+

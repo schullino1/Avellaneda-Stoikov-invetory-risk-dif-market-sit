@@ -1,48 +1,33 @@
 from __future__ import annotations
+import math
 from dataclasses import dataclass
-
 
 @dataclass(frozen=True)
 class Quote:
     bid: float
     ask: float
 
-
-def bps_to_frac(bps: float) -> float:
-    """Convert basis points to fraction. 1 bps = 1/10,000."""
-    return bps / 10_000.0
-
-
-def make_quote(
+def make_quote_as(
     *,
     mid: float,
-    vol_est: float,
-    inventory: float,
-    base_half_spread_bps: float,
-    vol_widening_bps: float,
-    inventory_skew_bps: float,
+    sigma: float,      # volatility estimate (dimensionless, consistent with your sim scale)
+    inventory: float,  # q
+    gamma: float,      # risk aversion
+    kappa: float,      # liquidity parameter (k)
+    tau: float,        # remaining time fraction in [0,1]
 ) -> Quote:
-    """
-    Create bid/ask quotes around a fair value proxy (mid).
+    # Reservation price: r = s - q * gamma * sigma^2 * tau * s
+    r = mid - inventory * gamma * (sigma ** 2) * tau * mid
 
-    Components:
-    1) Base half-spread: baseline compensation for providing liquidity.
-    2) Vol widening: in higher volatility, widen to reduce adverse selection risk.
-    3) Inventory skew: shift quotes to encourage inventory mean-reversion.
+    # Optimal total spread (dimensionless): Δ = gamma*sigma^2*tau + (2/gamma)*ln(1+gamma/kappa)
+    # Convert to price units by multiplying by mid
+    spread_frac = gamma * (sigma ** 2) * tau + (2.0 / gamma) * math.log(1.0 + gamma / kappa)
+    half_spread = 0.5 * spread_frac * mid
 
-    Interpretation of skew:
-    - If inventory is positive (long), we want to sell more and buy less:
-      => move both quotes downward (ask becomes easier to hit, bid becomes less attractive)
-    """
-    half_spread = bps_to_frac(base_half_spread_bps + vol_widening_bps * vol_est) * mid
-    skew = bps_to_frac(inventory_skew_bps) * inventory * mid
+    bid = r - half_spread
+    ask = r + half_spread
 
-    bid = mid - half_spread - skew
-    ask = mid + half_spread - skew
-
-    # Enforce invariant
     if bid >= ask:
-        # Fallback to a minimal spread around mid
         bid = mid * (1 - 1e-6)
         ask = mid * (1 + 1e-6)
 

@@ -8,7 +8,7 @@ import pandas as pd
 
 from .config import MMConfig
 from .price_process import simulate_gbm
-from .strategy import make_quote, Quote
+from .strategy import make_quote_as, Quote
 
 
 @dataclass
@@ -63,13 +63,22 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
         mid = float(mids[t])
         vol_est = float(vol_proxy[t])
 
-        q: Quote = make_quote(
+        T_steps = int(round(cfg.T_seconds / cfg.dt_seconds))
+        if T_steps <= 0:
+            raise ValueError("T_seconds too small vs dt_seconds")
+
+        t_in_period = t if cfg.tau_mode == "session" else (t % T_steps)
+
+        remaining_steps = max(T_steps - t_in_period, 0)
+        tau = remaining_steps / T_steps  # in [0,1]
+
+        q: Quote = make_quote_as(
             mid=mid,
-            vol_est=vol_est,
+            sigma=float(vol_proxy[t]),   # oder cfg.sigma, wenn du sigma konstant nutzen willst
             inventory=inventory,
-            base_half_spread_bps=cfg.base_half_spread_bps,
-            vol_widening_bps=cfg.vol_widening_bps,
-            inventory_skew_bps=cfg.inventory_skew_bps,
+            gamma=cfg.gamma,
+            kappa=cfg.k,
+            tau=tau,
         )
         
         bid_path.append(q.bid)
