@@ -68,3 +68,36 @@ def compute_kpis(
         "n_trades": n_trades,
         "adverse_selection_rate": adverse_rate,
     }
+
+def compute_var_inventory_horizon(ts: pd.DataFrame, horizon_seconds: int, dt_seconds: int, levels=(0.95, 0.99)) -> dict:
+    """
+    Inventory VaR over a fixed holding horizon.
+    PnL shock(t) = inventory[t] * (mid[t+h] - mid[t])
+    VaR_level = -Quantile(PnL_shock, 1-level)
+    """
+    if dt_seconds <= 0:
+        raise ValueError("dt_seconds must be > 0")
+
+    h = int(round(horizon_seconds / dt_seconds))
+    if h < 1:
+        raise ValueError("horizon is < 1 step; increase horizon_seconds or reduce dt_seconds")
+    if len(ts) <= h:
+        raise ValueError("timeseries too short for chosen horizon")
+
+    mid = ts["mid"].to_numpy(dtype=float)
+    inv = ts["inventory"].to_numpy(dtype=float)
+
+    shocks = inv[:-h] * (mid[h:] - mid[:-h])  # 60s holding PnL (inventory frozen at t)
+    out = {}
+    for lvl in levels:
+        alpha = 1.0 - float(lvl)
+        out[f"var_{int(lvl*100)}_inv_{horizon_seconds}s"] = float(-np.quantile(shocks, alpha))
+    return out
+
+def compute_basic_kpis(ts: pd.DataFrame, trades: pd.DataFrame) -> dict:
+    # hier packst du deine bestehenden KPIs rein
+    return {
+        "final_pnl": float(ts["pnl"].iloc[-1]) if "pnl" in ts.columns else None,
+        "final_inventory": float(ts["inventory"].iloc[-1]) if "inventory" in ts.columns else None,
+        "n_trades": int(len(trades)),
+    }

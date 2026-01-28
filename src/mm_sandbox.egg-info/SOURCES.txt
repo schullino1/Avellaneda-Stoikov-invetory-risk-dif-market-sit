@@ -3,6 +3,7 @@ pyproject.toml
 src/mm_sandbox/__init__.py
 src/mm_sandbox/config.py
 src/mm_sandbox/io.py
+src/mm_sandbox/metrics.py
 src/mm_sandbox/price_process.py
 src/mm_sandbox/simulator.py
 src/mm_sandbox/strategy.py
@@ -10,3 +11,5 @@ src/mm_sandbox.egg-info/PKG-INFO
 src/mm_sandbox.egg-info/SOURCES.txt
 src/mm_sandbox.egg-info/dependency_links.txt
 src/mm_sandbox.egg-info/top_level.txt
+tests/test_determinism.py
+tests/test_invariants.py

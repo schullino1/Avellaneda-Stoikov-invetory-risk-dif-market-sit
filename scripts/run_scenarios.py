@@ -4,18 +4,31 @@ import pandas as pd
 
 from mm_sandbox.io import load_config, write_outputs
 from mm_sandbox.simulator import run_simulation
-from mm_sandbox.metrics import compute_kpis
-
+from mm_sandbox.metrics import compute_kpis, compute_var_inventory_horizon  
 
 def run_one(cfg_path: Path, out_root: Path) -> dict:
     cfg = load_config(cfg_path)
     res = run_simulation(cfg)
+
+    horizon_steps = getattr(cfg, "adverse_horizon_steps", 10)
     kpis = compute_kpis(
         timeseries=res["timeseries"],
         trades=res["trades"],
         final_pnl=res["final_pnl"],
         final_inventory=res["final_inventory"],
-        horizon_steps=cfg.adverse_horizon_steps,
+        horizon_steps=horizon_steps,
+    )
+
+    # VaR (95% + 99%)
+    var_horizon_seconds = getattr(cfg, "var_horizon_seconds", 60)
+    var_levels = getattr(cfg, "var_levels", (0.95, 0.99))
+    kpis.update(
+        compute_var_inventory_horizon(
+            ts=res["timeseries"],
+            horizon_seconds=var_horizon_seconds,
+            dt_seconds=cfg.dt_seconds,
+            levels=var_levels,
+        )
     )
 
     scenario_name = cfg_path.stem
@@ -23,7 +36,6 @@ def run_one(cfg_path: Path, out_root: Path) -> dict:
     write_outputs(outdir, cfg, res["timeseries"], res["trades"], kpis)
 
     return {"scenario": scenario_name, **kpis}
-
 
 def main():
     ap = argparse.ArgumentParser()

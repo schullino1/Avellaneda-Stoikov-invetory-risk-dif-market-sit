@@ -12,6 +12,7 @@ class MMConfig(BaseModel):
     s0: float = Field(gt=0)
     mu: float
     sigma: float = Field(ge=0)
+    gamma: float
     seconds_per_year: int = Field(gt=0)
 
     base_half_spread_bps: float = Field(ge=0)
@@ -24,3 +25,6 @@ class MMConfig(BaseModel):
     fee_bps: float = Field(ge=0)
 
     adverse_horizon_steps: int = Field(ge=1)
+
+    var_horizon_seconds: int = 60
+    var_levels: list[float] = (0.95, 0.99)

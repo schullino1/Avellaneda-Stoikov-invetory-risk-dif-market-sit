@@ -52,6 +52,10 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
     inventory = 0.0
     cash = 0.0
     trades: List[Trade] = []
+    inventory_path = []
+    pnl_path = []
+    bid_path = []
+    ask_path = []
 
     dt = cfg.dt_seconds
 
@@ -67,6 +71,9 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
             vol_widening_bps=cfg.vol_widening_bps,
             inventory_skew_bps=cfg.inventory_skew_bps,
         )
+        
+        bid_path.append(q.bid)
+        ask_path.append(q.ask)
 
         # Inventory limits: if too long, prevent further buys; if too short, prevent further sells
         bid_active = inventory < cfg.max_inventory
@@ -94,8 +101,11 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
                 cash += price * size
                 cash -= price * size * (cfg.fee_bps / 10_000.0)
                 trades.append(Trade(t=t, side="sell", price=price, size=size, mid=mid))
+        
+        inventory_path.append(inventory)
+        pnl_path.append(cash + inventory * mid)
 
-    ts = pd.DataFrame({"t": range(cfg.n_steps), "mid": mids})
+    ts = pd.DataFrame({"t": range(cfg.n_steps), "mid": mids,"bid": bid_path, "ask": ask_path, "inventory": inventory_path,"pnl": pnl_path,})
     trades_df = pd.DataFrame([tr.__dict__ for tr in trades])
 
     final_pnl = cash + inventory * float(mids[-1])
