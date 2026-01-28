@@ -15,6 +15,8 @@ class MMConfig(BaseModel):
     gamma: float
     seconds_per_year: int = Field(gt=0)
 
+    tau_mode: str = "session"
+
     base_half_spread_bps: float = Field(ge=0)
     vol_widening_bps: float = Field(ge=0)
     inventory_skew_bps: float = Field(ge=0)
