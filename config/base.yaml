@@ -1,32 +1,31 @@
 # --- Reproduzierbarkeit ---
-# --- Die ausgewählten Paramter orientieren sich am orginal Avellaneda & Sasha Stoikov ---
-seed: 42                  # Fixer Zufalls-Seed -> reproduzierbare Simulation
+seed: 42                  # Fixer Zufalls-Seed -> identische Ergebnisse pro Run
 
-# --- Zeitdiskretisierung / Horizont (Avellaneda–Stoikov Paper) ---
-dt_seconds: 0.005          # dt = 0.005 (klein genug, damit "multiple fills im selben dt" selten sind)
-T_seconds: 1.0             # T = 1 (Trading-Periode in Sekunden in Setup)
-n_steps: 200               # n_steps = T / dt = 1.0 / 0.005 = 200 Schritte
-tau_mode: session          # tau = max(T - t*dt, 0) -> fällt linear bis 0
+# --- Zeitdiskretisierung (Paper) ---
+dt_seconds: 0.005          # Paper: dt
+T_seconds: 1.0             # Paper: T
+n_steps: 200               # = T/dt
+tau_mode: session          # tau = max(T - t*dt, 0)
 
 # --- Ordergröße ---
-trade_size: 1.0            # q ändert sich pro Fill um 1 (Inventory-Schrittweite)
+trade_size: 1.0            # Paper: Inventory-Schrittweite pro Fill
 
-# --- Preisprozess (Paper-naher Random Walk mit optionalem Drift) ---
-s0: 100.0                  # Startpreis s(0) = 100
-mu: 0.0                    # Drift in Preis-Einheiten pro Sekunde (0 = kein Trend; für Up/Downtrend später ± setzen)
-sigma: 2.0                 # σ = 2 (Schrittgröße ~ ±σ*sqrt(dt) im Random-Walk-Update)
+# --- Preisprozess (Paper-naher Random Walk) ---
+s0: 100.0                  # Paper: Startpreis
+mu: 0.0                    # Baseline ohne Trend (Szenarien überschreiben mu)
+sigma: 2.0                 # Paper: σ (Szenarien überschreiben sigma)
 
-# --- Avellaneda–Stoikov Kernparameter (Forschungsfrage) ---
-gamma: 0.1                 # γ = 0.1 (Risikoaversion -> beeinflusst Reservation Price & Spread)
+# --- Avellaneda–Stoikov Kernparameter ---
+gamma: 0.1                 # Startwert; im Experiment wird gamma gesweept
 
-# --- Orderflow / Liquidität (λ(δ) = A * exp(-k*δ)) ---
-A: 140.0                   # Basis-Intensität A = 140 (mehr A -> mehr potenzielle Fills)
-k: 1.5                     # k = 1.5 (je größer k, desto schneller fallen Fills mit Quote-Distanz δ)
+# --- Orderflow-Modell (Paper: λ(δ)=A*exp(-k*δ)) ---
+A: 140.0                   # Paper: Basisintensität
+k: 1.5                     # Paper: Liquidität/Depth Parameter
 
-# --- Kosten (Paper-Basissetup häufig ohne Fees) ---
-fee_bps: 0.0               # 0 für Paper-Replikation; optional später >0 als realistischere Extension
+# --- Kosten ---
+fee_bps: 0.0               # Paper-Baseline ohne Fees
 
-# --- KPI-Konfiguration ---
-adverse_horizon_steps: 10  # Markout-Horizont in Steps: 10 Steps = 10*dt = 0.05 Sekunden
-var_horizon_seconds: 0.05  # VaR-Horizont (0.05s = 10 Steps bei dt=0.005)
-var_levels: [0.95, 0.99]   # VaR 95% und 99% (Normal-Risk vs Tail-Risk)
+# --- KPI / Risk ---
+adverse_horizon_steps: 10  # Markout-Horizont in Steps (10*dt = 0.05s)
+var_horizon_seconds: 0.05  # VaR-Horizont in Sekunden (passt zu dt=0.005)
+var_levels: [0.95, 0.99]   # VaR 95% und 99%

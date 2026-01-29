@@ -57,8 +57,6 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
         if T_steps <= 0:
             raise ValueError("T_seconds too small vs dt_seconds")
 
-        t_in_period = t if cfg.tau_mode == "session" else (t % T_steps)
-
         t_seconds = t * cfg.dt_seconds
         tau_seconds = max(cfg.T_seconds - t_seconds, 0.0)  # Restzeit bis T
 
@@ -83,7 +81,7 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
         p_bid = fill_prob_paper(cfg.A, cfg.k, delta_bid, dt)
         p_ask = fill_prob_paper(cfg.A, cfg.k, delta_ask, dt)
 
-                # --- Trade-Execution ---
+        # --- Trade-Execution ---
         # Mit Wahrscheinlichkeit p_bid wird unsere BID-Quote getroffen:
         # -> wir BUYen zum Bid-Preis, Inventory steigt, Cash sinkt
         if rng.random() < p_bid:
