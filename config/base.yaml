@@ -1,22 +1,31 @@
-seed: 42                 # Fixer Zufalls-Seed -> exakt reproduzierbare Preiswege/Trades
-dt_seconds: 1.0          # Zeitschritt = 1 Sekunde (macht "60s VaR" = 60 Schritte)
-n_steps: 1200             # Simulationslänge = 600 Schritte (10 Minuten)
-T_seconds: 1200.0          # AS-Horizont T in Sekunden (tau = T - t*dt, fällt von 600 -> 0)
-trade_size: 1.0          # Feste Stückzahl pro Fill (hält die Mechanik übersichtlich)
+# --- Reproduzierbarkeit ---
+seed: 42                  # Fixer Zufalls-Seed -> reproduzierbare Simulation
 
-tau_mode: session        # "session" oder "rolling"
+# --- Zeitdiskretisierung / Horizont (Avellaneda–Stoikov Paper) ---
+dt_seconds: 0.005          # Paper: dt = 0.005 (klein genug, damit "multiple fills im selben dt" selten sind)
+T_seconds: 1.0             # Paper: T = 1 (Trading-Periode in Sekunden in Setup)
+n_steps: 200               # n_steps = T / dt = 1.0 / 0.005 = 200 Schritte
+tau_mode: session          # tau = max(T - t*dt, 0) -> fällt linear bis 0
 
-s0: 100.0                # Start-Mid-Preis (nur Skalierung)
-mu: 0.0                  # Drift = 0 (damit Effekte nicht vom Trend dominiert werden)
-sigma: 0.02              # Preis-Volatilitätsparameter des simulierten Mid-Prozesses (Skalierung der Preisbewegung)
-gamma: 0.1               # Risikoaversion im AS-Modell (klein wählen, sonst werden Quotes extrem aggressiv/konservativ)
+# --- Ordergröße ---
+trade_size: 1.0            # Paper: q ändert sich pro Fill um 1 (Inventory-Schrittweite)
 
-max_inventory: 20.0      # Hard-Limit für Inventory (verhindert unbounded exposure)
+# --- Preisprozess (Paper-naher Random Walk mit optionalem Drift) ---
+s0: 100.0                  # Paper: Startpreis s(0) = 100
+mu: 0.0                    # Drift in Preis-Einheiten pro Sekunde (0 = kein Trend; für Up/Downtrend später ± setzen)
+sigma: 2.0                 # Paper: σ = 2 (Schrittgröße ~ ±σ*sqrt(dt) im Random-Walk-Update)
 
-A: 1.5                   # Basis-Orderflow-Intensität: höher => mehr potentielle Fills
-k: 80.0                  # Liquiditäts-/Tiefe-Parameter: größer => Fill-Rate fällt sehr schnell mit Quote-Distanz
-fee_bps: 0.5             # Transaktionskosten in bps (einfacher Kosten-Proxy)
-adverse_horizon_steps: 10 # Horizon für adverse-selection Proxy (Mid-Bewegung 10 Schritte nach Fill)
+# --- Avellaneda–Stoikov Kernparameter (Forschungsfrage) ---
+gamma: 0.1                 # Paper: γ = 0.1 (Risikoaversion -> beeinflusst Reservation Price & Spread)
 
-var_horizon_seconds: 60  # VaR-Horizont = 60 Sekunden (kurzfristiges Inventory-Risiko)
-var_levels: [0.95, 0.99] # VaR-Konfidenzen: 95% und 99% (normal vs. tail risk)
+# --- Orderflow / Liquidität (Paper: λ(δ) = A * exp(-k*δ)) ---
+A: 140.0                   # Paper: Basis-Intensität A = 140 (mehr A -> mehr potenzielle Fills)
+k: 1.5                     # Paper: k = 1.5 (je größer k, desto schneller fallen Fills mit Quote-Distanz δ)
+
+# --- Kosten (Paper-Basissetup häufig ohne Fees) ---
+fee_bps: 0.0               # 0 für Paper-Replikation; optional später >0 als realistischere Extension
+
+# --- KPI-Konfiguration ---
+adverse_horizon_steps: 10  # Markout-Horizont in Steps: 10 Steps = 10*dt = 0.05 Sekunden
+var_horizon_seconds: 0.05  # VaR-Horizont (0.05s = 10 Steps bei dt=0.005)
+var_levels: [0.95, 0.99]   # VaR 95% und 99% (Normal-Risk vs Tail-Risk)

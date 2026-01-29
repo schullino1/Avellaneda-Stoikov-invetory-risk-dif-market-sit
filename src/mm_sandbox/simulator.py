@@ -7,9 +7,8 @@ import numpy as np
 import pandas as pd
 
 from .config import MMConfig
-from .price_process import simulate_gbm
+from .price_process import simulate_rw_paper
 from .strategy import make_quote_as, Quote
-
 
 @dataclass
 class Trade:
@@ -19,35 +18,25 @@ class Trade:
     size: float
     mid: float
 
-
-def fill_probability(A: float, k: float, delta: float, dt: float) -> float:
+def fill_prob_paper(A: float, k: float, delta: float, dt: float) -> float:
     """
-    Poisson-arrival fill model:
-    intensity lambda(delta) = A * exp(-k * delta)
-    P(fill in dt) = 1 - exp(-lambda * dt)
-
-    delta = distance from mid (price units). Further away => lower fill probability.
+    Paper: Ankunftsrate λ(δ) = A * exp(-k*δ)
+    Approximation: P(fill in dt) ≈ λ(δ) * dt   (für kleines dt)
     """
     lam = A * math.exp(-k * max(delta, 0.0))
-    return 1.0 - math.exp(-lam * dt)
-
+    return min(lam * dt, 1.0)
 
 def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
     rng = np.random.default_rng(cfg.seed)
 
-    mids = simulate_gbm(
+    mids = simulate_rw_paper(
         s0=cfg.s0,
         mu=cfg.mu,
         sigma=cfg.sigma,
-        dt_seconds=cfg.dt_seconds,
+        dt=cfg.dt_seconds,
         n_steps=cfg.n_steps,
-        seconds_per_year=cfg.seconds_per_year,
         rng=rng,
     )
-
-    # simple volatility proxy: absolute log returns
-    log_rets = np.diff(np.log(mids), prepend=np.log(mids[0]))
-    vol_proxy = np.abs(log_rets) * math.sqrt(cfg.seconds_per_year / cfg.dt_seconds)
 
     inventory = 0.0
     cash = 0.0
@@ -56,12 +45,13 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
     pnl_path = []
     bid_path = []
     ask_path = []
+    r_path = []
+    half_spread_path = []
 
     dt = cfg.dt_seconds
 
     for t in range(cfg.n_steps):
         mid = float(mids[t])
-        vol_est = float(vol_proxy[t])
 
         T_steps = int(round(cfg.T_seconds / cfg.dt_seconds))
         if T_steps <= 0:
@@ -69,52 +59,34 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
 
         t_in_period = t if cfg.tau_mode == "session" else (t % T_steps)
 
-        remaining_steps = max(T_steps - t_in_period, 0)
-        tau = remaining_steps / T_steps  # in [0,1]
+        t_seconds = t * cfg.dt_seconds
+        tau_seconds = max(cfg.T_seconds - t_seconds, 0.0)  # Restzeit bis T
 
-        q: Quote = make_quote_as(
+        q, r, half_spread = make_quote_as(
             mid=mid,
-            sigma=float(vol_proxy[t]),   # oder cfg.sigma, wenn du sigma konstant nutzen willst
+            sigma=cfg.sigma,
             inventory=inventory,
             gamma=cfg.gamma,
-            kappa=cfg.k,
-            tau=tau,
+            k=cfg.k,
+            tau_seconds=tau_seconds,
         )
-        
+
+        # Logging für Plot/Erklärung
         bid_path.append(q.bid)
         ask_path.append(q.ask)
-
-        # Inventory limits: if too long, prevent further buys; if too short, prevent further sells
-        bid_active = inventory < cfg.max_inventory
-        ask_active = inventory > -cfg.max_inventory
+        r_path.append(r)
+        half_spread_path.append(half_spread)
 
         delta_bid = max(mid - q.bid, 0.0)
         delta_ask = max(q.ask - mid, 0.0)
 
-        if bid_active:
-            p_bid = fill_probability(cfg.A, cfg.k, delta_bid, dt)
-            if rng.random() < p_bid:
-                price = q.bid
-                size = cfg.trade_size
-                inventory += size
-                cash -= price * size
-                cash -= price * size * (cfg.fee_bps / 10_000.0)
-                trades.append(Trade(t=t, side="buy", price=price, size=size, mid=mid))
-
-        if ask_active:
-            p_ask = fill_probability(cfg.A, cfg.k, delta_ask, dt)
-            if rng.random() < p_ask:
-                price = q.ask
-                size = cfg.trade_size
-                inventory -= size
-                cash += price * size
-                cash -= price * size * (cfg.fee_bps / 10_000.0)
-                trades.append(Trade(t=t, side="sell", price=price, size=size, mid=mid))
-        
+        p_bid = fill_prob_paper(cfg.A, cfg.k, delta_bid, dt)
+        p_ask = fill_prob_paper(cfg.A, cfg.k, delta_ask, dt)
+    
         inventory_path.append(inventory)
         pnl_path.append(cash + inventory * mid)
 
-    ts = pd.DataFrame({"t": range(cfg.n_steps), "mid": mids,"bid": bid_path, "ask": ask_path, "inventory": inventory_path,"pnl": pnl_path,})
+    ts = pd.DataFrame({"t": range(cfg.n_steps),"mid": mids,"r": r_path,"bid": bid_path,"ask": ask_path,"half_spread": half_spread_path,"inventory": inventory_path,"pnl": pnl_path,})
     trades_df = pd.DataFrame([tr.__dict__ for tr in trades])
 
     final_pnl = cash + inventory * float(mids[-1])
