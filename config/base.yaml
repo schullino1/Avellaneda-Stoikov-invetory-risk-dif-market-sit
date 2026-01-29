@@ -1,26 +1,27 @@
 # --- Reproduzierbarkeit ---
+# --- Die ausgewählten Paramter orientieren sich am orginal Avellaneda & Sasha Stoikov ---
 seed: 42                  # Fixer Zufalls-Seed -> reproduzierbare Simulation
 
 # --- Zeitdiskretisierung / Horizont (Avellaneda–Stoikov Paper) ---
-dt_seconds: 0.005          # Paper: dt = 0.005 (klein genug, damit "multiple fills im selben dt" selten sind)
-T_seconds: 1.0             # Paper: T = 1 (Trading-Periode in Sekunden in Setup)
+dt_seconds: 0.005          # dt = 0.005 (klein genug, damit "multiple fills im selben dt" selten sind)
+T_seconds: 1.0             # T = 1 (Trading-Periode in Sekunden in Setup)
 n_steps: 200               # n_steps = T / dt = 1.0 / 0.005 = 200 Schritte
 tau_mode: session          # tau = max(T - t*dt, 0) -> fällt linear bis 0
 
 # --- Ordergröße ---
-trade_size: 1.0            # Paper: q ändert sich pro Fill um 1 (Inventory-Schrittweite)
+trade_size: 1.0            # q ändert sich pro Fill um 1 (Inventory-Schrittweite)
 
 # --- Preisprozess (Paper-naher Random Walk mit optionalem Drift) ---
-s0: 100.0                  # Paper: Startpreis s(0) = 100
+s0: 100.0                  # Startpreis s(0) = 100
 mu: 0.0                    # Drift in Preis-Einheiten pro Sekunde (0 = kein Trend; für Up/Downtrend später ± setzen)
-sigma: 2.0                 # Paper: σ = 2 (Schrittgröße ~ ±σ*sqrt(dt) im Random-Walk-Update)
+sigma: 2.0                 # σ = 2 (Schrittgröße ~ ±σ*sqrt(dt) im Random-Walk-Update)
 
 # --- Avellaneda–Stoikov Kernparameter (Forschungsfrage) ---
-gamma: 0.1                 # Paper: γ = 0.1 (Risikoaversion -> beeinflusst Reservation Price & Spread)
+gamma: 0.1                 # γ = 0.1 (Risikoaversion -> beeinflusst Reservation Price & Spread)
 
-# --- Orderflow / Liquidität (Paper: λ(δ) = A * exp(-k*δ)) ---
-A: 140.0                   # Paper: Basis-Intensität A = 140 (mehr A -> mehr potenzielle Fills)
-k: 1.5                     # Paper: k = 1.5 (je größer k, desto schneller fallen Fills mit Quote-Distanz δ)
+# --- Orderflow / Liquidität (λ(δ) = A * exp(-k*δ)) ---
+A: 140.0                   # Basis-Intensität A = 140 (mehr A -> mehr potenzielle Fills)
+k: 1.5                     # k = 1.5 (je größer k, desto schneller fallen Fills mit Quote-Distanz δ)
 
 # --- Kosten (Paper-Basissetup häufig ohne Fees) ---
 fee_bps: 0.0               # 0 für Paper-Replikation; optional später >0 als realistischere Extension
