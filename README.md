@@ -1,144 +1,91 @@
 # Market Making Sandbox (Synthetic, Reproducible)
+## 1. Background & Research Question
+Market making provides liquidity by continuously quoting bid and ask prices. The core trade-off is between earning the spread and managing inventory risk and adverse selection. This repository implements a simplified, fully reproducible sandbox to study how risk aversion (γ) and market regimes influence that trade-off in a controlled setting, based on the Avellaneda–Stoikov framework.
 
-## TL;DR (in 30 Sekunden)
-Ich habe dieses Repository gebaut, um die Kernkonzepte von **Market Making** verständlich und reproduzierbar zu demonstrieren:
-- Ich stelle gleichzeitig einen **Kaufpreis (Bid)** und **Verkaufspreis (Ask)**.
-- Ich verdiene (potenziell) am **Spread** – trage aber Risiko durch **Inventory** und **Adverse Selection**.
-- Ich simuliere Mid-Prices synthetisch (kontrolliert & auditierbar) und messe die Strategie mit **KPIs**.
+**Research question:** How does changing the market maker’s risk aversion (γ) affect quoting behavior, inventory risk, and adverse selection across different synthetic market regimes?
 
-Dieses Projekt ist bewusst **einfach**, um die Mechanik klar zu erklären, aber **strukturiert**, um wissenschaftlich prüfbar zu sein (Config + deterministische Seeds + Outputs + Tests).
+## 2. Basics & Project Structure (incl. Limitations)
 
----
+### 2.1 Conceptual model (high level)
+The simulation follows a stylized Avellaneda–Stoikov setup:
+- A synthetic mid-price process (random walk with drift/volatility) is simulated per scenario.
+- Quotes are computed each step based on risk aversion, volatility, and remaining horizon.
+- Fills occur stochastically as a function of quote distance to mid (arrival-rate model).
+- PnL is marked-to-market; inventory and risk metrics are recorded.
 
-## Was ist Market Making? 
-Stell dir vor, ein Kiosk kauft und verkauft Süßigkeiten:
-- Er sagt: „Ich kaufe für 0,95€“ (Bid) und „ich verkaufe für 1,00€“ (Ask).
-- Die Differenz (0,05€) ist der **Spread** – daraus kann Gewinn entstehen.
-- Risiko: Vielleicht kaufen viele Leute gleichzeitig, dann sitzt der Kiosk auf viel Ware (**Inventory**).
-- Oder: Kunden kaufen genau dann, wenn der Großhandelspreis gleich fällt (**Adverse Selection**).
+### 2.2 Scenario design and parameters
+We simulate four market regimes using different drift/volatility pairs:
+- Calm: μ=0, σ=2
+- Turbulent: μ=0, σ=10
+- Uptrend: μ=+10, σ=2
+- Downtrend: μ=−10, σ=2
+Risk aversion is swept over γ ∈ {0.001, 0.01, 0.05, 0.1, 0.3}. All other parameters are held constant to isolate the impact of γ on strategy behavior.
 
-In Märkten ist das ähnlich: Market Maker stellen ständig Bid/Ask, damit andere schnell handeln können.
+### 2.3 Repository structure (key files)
+- `src/mm_sandbox/` — core simulation, strategy, and metrics logic.
+- `config/` — scenario configurations (market regimes & risk settings).
+- `scripts/run_scenarios.py` — batch runs for scenario comparison.
+- `scripts/plot_4fig_story.py` — figure generation for the narrative plots.
+- `results/` — output artifacts (config, timeseries, trades, summary).
 
----
+### 2.4 Limitations (explicit and intentional)
+This is a didactic sandbox, not a production trading system:
+- **No real order book**: no queue priority, latency, or microstructure frictions.
+- **Synthetic price process**: simplified dynamics (no jumps, no regime switches unless configured).
+- **Simplified fill model**: Poisson/arrival-rate approximation tied to quote distance.
+- **Risk metrics are illustrative**: VaR and adverse selection proxies are simplified.
 
-## Warum synthetische Daten?
-Für ein erstes, auditierbares Projekt sind synthetische Daten ideal:
-- **Reproduzierbar**: Gleicher Seed ⇒ gleiche Preisreihe ⇒ gleiche Trades/KPIs.
-- **Kontrollierbar**: Ich kann Regime (ruhig/volatil/trend) gezielt erzeugen.
-- **Fokus auf Konzepte** statt Daten-Edge-Cases (fehlende Timestamps, API-Ausfälle, Orderbook-Rekonstruktion).
+These choices are deliberate to keep experiments transparent and reproducible while highlighting the main mechanisms.
 
-Später kann man die Mid-Price-Zeitreihe durch echte Daten ersetzen (siehe “Extensions”).
+## 3. Results, Conclusions & Outlook
+### 3.1 Results (from the provided figures)
+**Quoting behavior (Figure 1):** Spreads widen as γ increases across all regimes. In turbulent markets, the higher-volatility environment leads to visibly wider quote bands for the same γ, while calm and trending regimes show tighter bands overall. This indicates that both σ and γ contribute to more conservative quoting.
 
----
+**PnL over time (Figure 2):** Lower γ generally yields higher average PnL in calm and uptrend regimes, consistent with tighter quoting and higher trade frequency. In turbulent regimes, low γ produces higher variability (more volatile PnL paths). In the downtrend scenario, moderate γ values show more stable growth, while very low γ can underperform due to inventory exposure during adverse drift.
 
-## Wissenschaftliche Basis
-Dieses Repo folgt der Grundidee der Market-Making-Literatur: Quotes werden so gewählt, dass ein Trade-off entsteht zwischen:
-- **Liquidität bereitstellen** (eng quoten ⇒ mehr Fills)
-- **Risiko kontrollieren** (volatil ⇒ Spread breiter; Inventory steuern)
-- **Adverse Selection reduzieren** (nach Fill bewegt sich der Preis oft „gegen“ den Maker)
+**Inventory dynamics (Figure 3):** Lower γ leads to wider inventory swings across regimes, especially in turbulent conditions, indicating higher exposure. Higher γ keeps inventory closer to zero and reduces amplitude in all scenarios, reflecting more aggressive inventory control.
 
-Als Referenz verwende ich u.a.:
-- Avellaneda & Stoikov (Optimal Market Making / LOB), DOI: 10.1080/14697680701381228  
-- Madhavan (Market Microstructure Survey), DOI: 10.1016/S1386-4181(00)00007-0  
-- SEC/Investor.gov Erklärungen zu Spread & Maker-Taker (siehe References)
+**Tail risk (VaR, Figure 4):** VaR levels decrease as γ increases in every regime, with the sharpest improvements in the turbulent market. This demonstrates that higher risk aversion materially reduces downside tail exposure, albeit at the cost of reduced trading activity and lower average PnL.
 
----
+**Per-trade markout (Figure 5):** Low γ strategies show wider markout distributions (both upside and downside), indicating larger adverse-selection tails. Higher γ compresses the distribution, reducing extreme negative outcomes but also limiting upside. Moderate γ values balance dispersion and median performance across regimes.
 
-## Projekt-Architektur (übersichtlich)
+### 3.2 Conclusions (neutral)
+- Lower γ produces tighter quotes, higher trading intensity, and larger inventory swings, which can improve mean PnL but increases tail risk and adverse selection exposure.
+- Higher γ reduces inventory variance and downside tail risk, with more stable (but typically lower) PnL.
+- The optimal γ is regime-dependent: calm and uptrend regimes tolerate lower γ, while turbulent and downtrend regimes benefit from higher γ to control risk.
 
----
+### 3.3 Outlook (extensions)
+- Replace synthetic mid-price paths with real data and compare regimes.
+- Extend the fill model with order book depth and queue dynamics.
+- Add regime switching, jumps, and volatility clustering to the price process.
+- Introduce explicit risk limits and inventory-based hedging.
 
-## Wie funktioniert die Simulation? (leicht verständlich)
-1) **Ich simuliere** eine Mid-Price-Zeitreihe (synthetisch).
-2) In jedem Zeitschritt berechne ich eine Quote:
-   - Basis-Spread (Entlohnung fürs Bereitstellen von Liquidität)
-   - Volatilitäts-Aufschlag (in unsicheren Märkten: breiter quoten)
-   - Inventory-Skew (wenn ich zu “long” bin, will ich eher verkaufen)
-3) **Fills passieren stochastisch**: Je näher mein Quote am Mid ist, desto wahrscheinlicher ein Fill.
-4) Ich tracke **Inventory** und **Cash**, daraus ergibt sich **Mark-to-Market PnL** am Ende.
-
----
-
-## KPIs (was ich messen will und warum)
-Die KPIs sind so gewählt, dass man die typischen Market-Making Trade-offs erkennt:
-
-- **final_pnl (Mark-to-Market)**: Gesamtleistung inkl. Inventory-Bewertung am letzten Mid.
-- **n_trades**: Aktivität / Fill-Intensität (eng quoten ⇒ oft mehr Trades).
-- **final_inventory**: Risiko-Exposure (zu viel Inventory ist riskant).
-- **adverse_selection_rate (Proxy)**:
-  - Nach einem **BUY-Fill**: Wenn der Mid nach X Schritten darunter liegt, war der Fill tendenziell „schlecht“ (picked off).
-  - Nach einem **SELL-Fill**: Wenn der Mid nach X Schritten darüber liegt, analog.
-  - Das ist bewusst ein **einfacher Proxy**, aber transparent & auditierbar.
-
----
-
-## Reproduzierbarkeit & Audit Trail (wichtig!)
-Jeder Run schreibt einen vollständigen Audit-Ordner:
-- `config_used.yaml`  – exakt verwendete Parameter
-- `timeseries.csv`    – Mid-Price Zeitreihe
-- `trades.csv`        – alle Trades (Zeit, Seite, Preis, Größe)
-- `summary.json`      – KPIs
-
-Damit kann jeder Dritte den Run nachvollziehen und die Ergebnisse überprüfen.
-
----
-
-## Quickstart
-### 1) Installation
+## 5. Setup & Execution
+### 5.1 Installation
 ```bash
 pip install -r requirements.txt
 pip install -e .
+```
 
----
-## Single Run
-python scripts/run_backtest.py --config config/base.yaml --outdir results/run_001
+### 5.2 Run a single backtest
+```bash 
+python scripts/run_backtest.py --config config/base.yaml --outdir results/run_001```
 
----
-## Run mit Szenarien 
-python scripts/run_scenarios.py --config_dir config --outdir results/scenarios
+### 5.3 Run all scenarios
+```bash
+python scripts/run_scenarios.py --config_dir config --outdir results/scenarios```
 
-Ich nutze mehrere Configs, um verständliche Aussagen zu machen:
-- Low Vol + tight spread: mehr Fills, aber ggf. mehr adverse selection
-- High Vol + wider spread: weniger Fills, aber (oft) stabileres Profil
-- Trend-Regime: zeigt, warum Inventory-Skew wichtig sein kann
-- Ziel ist nicht „max PnL“ in dieser Toy-Welt, sondern Mechanik + Trade-offs sichtbar zu machen.
+### 5.4 Generate figures
+```bash
+python scripts/plot_4fig_story.py
+```
+### 5.5 Tests
+```bash
+pytest -q
+```
 
----
-
-### Tests (wissenschaftlich sauber)
-
-Ich prüfe mindestens:
-- Determinismus: gleicher Seed ⇒ gleiche Ergebnisse
-- Invarianten: z.B. bid < ask
-
-### Um die Test durchzuführen
-pytest -q 
-
----
-Limitierungen (ehrlich und wichtig)
-
-Dieses Repo ist eine didaktische Simulation, kein Produktions-HFT-System:
-- Kein echtes Orderbook, keine echte Latenz-/Execution-Engine
-- Synthetischer Mid (GBM) ist ein Baseline-Modell (konstante Volatilität, keine Jumps)
-- Fill-Modell ist vereinfacht (Poisson/Intensität als Funktion der Quote-Distanz)
-- Diese Vereinfachungen sind bewusst gewählt, um Konzepte klar und reproduzierbar zu demonstrieren.
-
----
-Extensions
-- Mid-Price durch echte Daten ersetzen (CSV Loader)
-- echtes L2 Orderbook + Snapshot/Diff-Rekonstruktion
-- bessere Vol-Schätzung, Regime-Switching, Jumps
-- Risiko: Inventory Value-at-Risk, Limits, Hedging
-
----
-References
-Market Making & Microstructure
-    - Avellaneda, M.; Stoikov, S. (2008): High-frequency trading in a limit order book. Quantitative Finance. DOI: 10.1080/14697680701381228
-    - Madhavan, A. (2000): Market microstructure: A survey. Journal of Financial Markets. DOI: 10.1016/S1386-4181(00)00007-0
-
-Spread / Maker-Taker (Overviews)
-    - U.S. SEC: Spread (Definition Bid/Ask/Spread; market makers earn the spread).
-    - U.S. SEC (Division of Trading and Markets memo, 2015): Maker-Taker Fees on Equities Exchanges.
-
-Synthetic price process (GBM background)
-    - Standard lecture notes on Geometric Brownian Motion (GBM) / Black-Scholes assumptions.
+## References
+- Avellaneda, M.; Stoikov, S. (2008). *High-frequency trading in a limit order book*. Quantitative Finance. DOI: 10.1080/14697680701381228
+- Madhavan, A. (2000). *Market microstructure: A survey*. Journal of Financial Markets. DOI: 10.1016/S1386-4181(00)00007-0
+- SEC Investor.gov: Bid/Ask Spread and market making overviews.
+- SEC (Division of Trading and Markets, 2015): Maker–taker fee discussion.
