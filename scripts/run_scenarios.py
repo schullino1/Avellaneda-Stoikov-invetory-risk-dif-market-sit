@@ -99,16 +99,16 @@ def main() -> None:
     #
     #    Hinweis: mu ist bei uns in Preis-Einheiten pro Sekunde (arithmetischer Drift).
     scenarios = [
-        {"name": "calm",      "mu": 0.0,  "sigma": 1.0},
-        {"name": "turbulent", "mu": 0.0,  "sigma": 8.0},
-        {"name": "uptrend",   "mu": 4.0,  "sigma": 2.0},
-        {"name": "downtrend", "mu": -4.0, "sigma": 2.0},
+        {"name": "calm",      "mu": 0.0,  "sigma": 2.0},
+        {"name": "turbulent", "mu": 0.0,  "sigma": 10.0},
+        {"name": "uptrend",   "mu": 10.0,  "sigma": 2.0},
+        {"name": "downtrend", "mu": -10.0, "sigma": 2.0},
     ]
 
     # 3) Gamma-Grid (log-artig gestaffelt -> sinnvoll für Sensitivitätsanalyse)
     #    gamma klein -> risk-neutraler, enger/aktiver
     #    gamma groß  -> risikoaverser, konservativer
-    gammas = [0.01, 0.03, 0.1, 0.3, 1.0]
+    gammas = [0.001, 0.01, 0.05, 0.1, 0.3]
 
     rows: list[dict] = []
 

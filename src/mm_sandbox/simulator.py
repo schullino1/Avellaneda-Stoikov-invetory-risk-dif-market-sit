@@ -60,8 +60,9 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
         t_seconds = t * cfg.dt_seconds
         tau_seconds = max(cfg.T_seconds - t_seconds, 0.0)  # Restzeit bis T
 
+        mid_quote = float(mids[t-1]) if t > 0 else float(mids[0])
         q, r, half_spread = make_quote_as(
-            mid=mid,
+            mid=mid_quote,
             sigma=cfg.sigma,
             inventory=inventory,
             gamma=cfg.gamma,
@@ -80,29 +81,30 @@ def run_simulation(cfg: MMConfig) -> Dict[str, Any]:
 
         p_bid = fill_prob_paper(cfg.A, cfg.k, delta_bid, dt)
         p_ask = fill_prob_paper(cfg.A, cfg.k, delta_ask, dt)
+        
+        u = rng.random()
+        p_total = min(p_bid + p_ask, 1.0)
 
-        # --- Trade-Execution ---
-        # Mit Wahrscheinlichkeit p_bid wird unsere BID-Quote getroffen:
-        # -> wir BUYen zum Bid-Preis, Inventory steigt, Cash sinkt
-        if rng.random() < p_bid:
-            price = q.bid
-            size = cfg.trade_size
-            inventory += size
-            cash -= price * size
-            # Fees (bps) optional
-            cash -= price * size * (cfg.fee_bps / 10_000.0)
-            trades.append(Trade(t=t, side="buy", price=price, size=size, mid=mid))
+        if u < p_total:
+            # choose side proportional to p_bid vs p_ask
+            if u < p_ask:
+                # BID filled -> buy
+                price = q.ask
+                size = cfg.trade_size
+                inventory -= size
+                cash += price * size
+                cash -= price * size * (cfg.fee_bps / 10_000.0)
+                trades.append(Trade(t=t, side="sell", price=price, size=size, mid=mid))
+            else:
+                # bid filled -> sell
+                price = q.bid
+                size = cfg.trade_size
+                inventory += size
+                cash -= price * size
+                cash -= price * size * (cfg.fee_bps / 10_000.0)
+                trades.append(Trade(t=t, side="buy", price=price, size=size, mid=mid))
+                
 
-        # Mit Wahrscheinlichkeit p_ask wird unsere ASK-Quote getroffen:
-        # -> wir SELLen zum Ask-Preis, Inventory sinkt, Cash steigt
-        if rng.random() < p_ask:
-            price = q.ask
-            size = cfg.trade_size
-            inventory -= size
-            cash += price * size
-            cash -= price * size * (cfg.fee_bps / 10_000.0)
-            trades.append(Trade(t=t, side="sell", price=price, size=size, mid=mid))
-    
         inventory_path.append(inventory)
         pnl_path.append(cash + inventory * mid)
 
