@@ -21,6 +21,8 @@ We simulate four market regimes using different drift/volatility pairs:
 - Downtrend: μ=−10, σ=2
 Risk aversion is swept over γ ∈ {0.001, 0.01, 0.05, 0.1, 0.3}. All other parameters are held constant to isolate the impact of γ on strategy behavior.
 
+<img width="2520" height="1080" alt="00_mid_overview" src="https://github.com/user-attachments/assets/7a05df89-09de-478c-9a6e-d0f1781c8516" />
+
 ### 2.3 Repository structure (key files)
 - `src/mm_sandbox/` — core simulation, strategy, and metrics logic.
 - `config/` — scenario configurations (market regimes & risk settings).
@@ -38,15 +40,16 @@ This is a didactic sandbox, not a production trading system:
 These choices are deliberate to keep experiments transparent and reproducible while highlighting the main mechanisms.
 
 ## 3. Results, Conclusions & Outlook
-### 3.1 Results (from the provided figures)
+### 3.1 Results
+<img width="2520" height="1620" alt="01_quoting_2x2" src="https://github.com/user-attachments/assets/e39bc4a6-2219-43e7-a90f-8d16d5fe535a" />
 **Quoting behavior (Figure 1):** Spreads widen as γ increases across all regimes. In turbulent markets, the higher-volatility environment leads to visibly wider quote bands for the same γ, while calm and trending regimes show tighter bands overall. This indicates that both σ and γ contribute to more conservative quoting.
-
+<img width="2520" height="1620" alt="02_pnl_2x2" src="https://github.com/user-attachments/assets/600bbdaf-964a-4854-932e-c068047cfcbc" />
 **PnL over time (Figure 2):** Lower γ generally yields higher average PnL in calm and uptrend regimes, consistent with tighter quoting and higher trade frequency. In turbulent regimes, low γ produces higher variability (more volatile PnL paths). In the downtrend scenario, moderate γ values show more stable growth, while very low γ can underperform due to inventory exposure during adverse drift.
-
+<img width="2520" height="1620" alt="03_inventory_2x2" src="https://github.com/user-attachments/assets/d4180c63-8f41-40ac-a8e7-7b0de13c9c8a" />
 **Inventory dynamics (Figure 3):** Lower γ leads to wider inventory swings across regimes, especially in turbulent conditions, indicating higher exposure. Higher γ keeps inventory closer to zero and reduces amplitude in all scenarios, reflecting more aggressive inventory control.
-
+<img width="2520" height="1620" alt="04_var_bars_2x2" src="https://github.com/user-attachments/assets/8281a36d-72ae-4e88-bd04-4cda7b88054f" />
 **Tail risk (VaR, Figure 4):** VaR levels decrease as γ increases in every regime, with the sharpest improvements in the turbulent market. This demonstrates that higher risk aversion materially reduces downside tail exposure, albeit at the cost of reduced trading activity and lower average PnL.
-
+<img width="2520" height="1620" alt="05_markout_boxplot_2x2" src="https://github.com/user-attachments/assets/beba99b7-866b-4260-9e2b-7af18c0ee233" />
 **Per-trade markout (Figure 5):** Low γ strategies show wider markout distributions (both upside and downside), indicating larger adverse-selection tails. Higher γ compresses the distribution, reducing extreme negative outcomes but also limiting upside. Moderate γ values balance dispersion and median performance across regimes.
 
 ### 3.2 Conclusions (neutral)
