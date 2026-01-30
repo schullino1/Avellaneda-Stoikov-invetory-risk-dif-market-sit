@@ -77,6 +77,7 @@ def read_all_runs_for_scenario(scenario: str) -> list[dict]:
         "gamma": float,
         "ts": DataFrame,
         "kpi": dict,
+        "trades": DataFrame,
         "run_dir": Path
       }, ...]
     Folder structure: results/experiment/<scenario>/gamma_<g>/
@@ -90,6 +91,7 @@ def read_all_runs_for_scenario(scenario: str) -> list[dict]:
     for rd in run_dirs:
         ts_path = rd / "timeseries.csv"
         kpi_path = rd / "summary.json"
+        trades_path = rd / "trades.csv"
         if not ts_path.exists() or not kpi_path.exists():
             continue
 
@@ -99,8 +101,9 @@ def read_all_runs_for_scenario(scenario: str) -> list[dict]:
             continue
 
         ts = pd.read_csv(ts_path)
+        trades = pd.read_csv(trades_path) if trades_path.exists() else pd.DataFrame()
         kpi = json.loads(kpi_path.read_text(encoding="utf-8"))
-        runs.append({"gamma": gamma, "ts": ts, "kpi": kpi, "run_dir": rd})
+        runs.append({"gamma": gamma, "ts": ts, "trades": trades, "kpi": kpi, "run_dir": rd})
 
     runs.sort(key=lambda x: x["gamma"])
     return runs
@@ -134,6 +137,23 @@ def read_mu_sigma_from_config_used(run_dir: Path) -> tuple[float | None, float |
                 pass
     return mu, sigma
 
+def read_adverse_horizon_steps(run_dir: Path) -> int | None:
+    """
+    Reads adverse_horizon_steps from config_used.yaml inside a run folder.
+    Minimal parser: looks for line like 'adverse_horizon_steps: 10'.
+    """
+    p = run_dir / "config_used.yaml"
+    if not p.exists():
+        return None
+
+    for line in p.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if s.startswith("adverse_horizon_steps:"):
+            try:
+                return int(s.split("adverse_horizon_steps:", 1)[1].strip())
+            except ValueError:
+                return None
+    return None
 
 def scenario_title_with_params(scenario: str) -> str:
     """
@@ -281,6 +301,44 @@ def compute_global_ylim_for_var() -> float | None:
 
     return vmax * 1.15
 
+# -----------------------------
+# Helpers: markout per trade
+# -----------------------------
+def compute_markouts(
+    trades: pd.DataFrame,
+    timeseries: pd.DataFrame,
+    horizon_steps: int,
+) -> list[float]:
+    """
+    Markout per trade:
+      buy:  mid_{t+h} - price_fill
+      sell: price_fill - mid_{t+h}
+    Negative => adverse selection.
+    """
+    if trades.empty:
+        return []
+    if "t" not in trades.columns or "price" not in trades.columns or "side" not in trades.columns:
+        return []
+    if "t" not in timeseries.columns or "mid" not in timeseries.columns:
+        return []
+
+    mids = timeseries.set_index("t")["mid"]
+    future_mid = mids.shift(-horizon_steps)
+    markouts: list[float] = []
+
+    for _, row in trades.iterrows():
+        t = int(row["t"])
+        fm = future_mid.get(t)
+        if pd.isna(fm):
+            continue
+        price = float(row["price"])
+        side = str(row["side"])
+        if side == "buy":
+            markouts.append(float(fm - price))
+        elif side == "sell":
+            markouts.append(float(price - fm))
+
+    return markouts
 
 # -----------------------------
 # NEW Figure 0: Market price overview (mid only, all scenarios in one chart)
@@ -317,6 +375,46 @@ def plot_market_price_overview() -> None:
     fig.savefig(OUTDIR / "00_mid_overview.png", dpi=180)
     plt.close(fig)
 
+def plot_markout_distributions(gamma_values: list[float], gamma_colors: dict[float, tuple]) -> None:
+    fig, axes, ax_map = scenario_axes_grid(
+        "5) Markout pro Trade (positiv = vorteilhaft, negativ = adverse)"
+    )
+
+    for scenario in SCENARIOS:
+        ax = ax_map[scenario]
+        runs = read_all_runs_for_scenario(scenario)
+        if not runs:
+            ax.set_axis_off()
+            continue
+
+        horizon_steps = read_adverse_horizon_steps(runs[0]["run_dir"])
+        horizon_suffix = f"h={horizon_steps} Schritte" if horizon_steps else "h=unbekannt"
+
+        gammas = [r["gamma"] for r in runs]
+        markout_series = [
+            compute_markouts(r["trades"], r["ts"], horizon_steps or 1) for r in runs
+        ]
+
+        positions = list(range(len(gammas)))
+        box = ax.boxplot(markout_series, positions=positions, patch_artist=True)
+        for patch, g in zip(box["boxes"], gammas):
+            patch.set_facecolor(gamma_colors[g])
+            patch.set_alpha(0.5)
+        for median in box["medians"]:
+            median.set_color("black")
+
+        ax.axhline(0.0, color="black", linewidth=0.8, alpha=0.6)
+        ax.set_title(f"{scenario_title_with_params(scenario)} ({horizon_suffix})")
+        ax.set_xlabel("Risikoaversion γ")
+        ax.set_ylabel("Markout")
+        ax.set_xticks(positions)
+        ax.set_xticklabels([f"{g:g}" for g in gammas], rotation=0)
+        ax.grid(True, axis="y", alpha=0.2)
+
+    add_shared_gamma_legend(fig, gamma_values, gamma_colors)
+    plt.tight_layout(rect=[0, 0.06, 1, 0.95])
+    fig.savefig(OUTDIR / "05_markout_boxplot_2x2.png", dpi=180)
+    plt.close(fig)
 
 # -----------------------------
 # Figure 1: Quoting (r + band only; mid removed)
@@ -492,6 +590,9 @@ def main():
 
     # 4) VaR bars
     plot_var_bars(gamma_values, gamma_colors)
+
+    # 5) Markout distributions
+    plot_markout_distributions(gamma_values, gamma_colors)
 
     print("Wrote figures to:", OUTDIR)
 
