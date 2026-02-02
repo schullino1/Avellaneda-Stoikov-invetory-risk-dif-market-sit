@@ -1,4 +1,4 @@
-# Market Making Sandbox (Synthetic, Reproducible)
+# Market Making Sandbox Avellaneda–Stoikov (Synthetic, Reproducible)
 ## 1. Background & Research Question
 Market making provides liquidity by continuously quoting bid and ask prices. The core trade-off is between earning the spread and managing inventory risk and adverse selection. This repository implements a simplified, fully reproducible sandbox to study how risk aversion (γ) and market regimes influence that trade-off in a controlled setting, based on the Avellaneda–Stoikov framework.
 
